@@ -14,7 +14,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -142,11 +141,15 @@ fun ZenTimerScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(BeigeBackground)
     ) {
+        val screenHeight = maxHeight
+        val screenWidth = maxWidth
+        val isCompact = screenHeight < 680.dp
+
         // Subtle Semi-transparent Japanese Rice Bowl Background Watermark
         RiceBowlWatermarkBackground(alpha = 0.08f)
 
@@ -166,48 +169,52 @@ fun ZenTimerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(
+                    horizontal = if (screenWidth < 360.dp) 16.dp else 24.dp,
+                    vertical = if (isCompact) 18.dp else 28.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header Section: Philosophy & Japanese Calligraphy
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 20.dp)
+                modifier = Modifier.padding(top = if (isCompact) 4.dp else 12.dp)
             ) {
                 Text(
                     text = "一炊の夢", // "Dream during the cooking of a pot of rice"
-                    fontSize = 13.sp,
+                    fontSize = if (isCompact) 12.sp else 14.sp,
                     color = ShuIro,
-                    letterSpacing = 6.sp,
+                    letterSpacing = 5.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
                     text = "KUKU TIMER",
                     style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         letterSpacing = 4.sp,
                         color = InkSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 6.dp else 10.dp))
 
                 Text(
-                    text = if (isWindowOpen) "Котел закипел. Рис готов" else "Котел с рисом закипает...",
+                    text = if (isWindowOpen) "Котел закипел. Рис готов!" else "Котел с рисом закипает...",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         color = InkPrimary,
                         fontWeight = FontWeight.Light,
-                        letterSpacing = 1.sp
+                        fontSize = if (isCompact) 18.sp else 22.sp,
+                        letterSpacing = 0.5.sp
                     ),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
                     text = if (isWindowOpen)
@@ -217,15 +224,17 @@ fun ZenTimerScreen(
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = KinGold,
                         fontFamily = FontFamily.Serif,
-                        fontSize = 12.sp
+                        fontSize = if (isCompact) 11.sp else 12.sp
                     ),
                     textAlign = TextAlign.Center
                 )
             }
 
-            // Central Zen Dial with Animated Rice Grains
+            // Central Zen Dial with Animated Rice Grains (Responsive size)
+            val dialSize = (screenHeight * 0.36f).coerceIn(200.dp, 280.dp)
+
             RiceGrainDial(
-                modifier = Modifier.size(280.dp),
+                modifier = Modifier.size(dialSize),
                 isReady = isWindowOpen
             ) {
                 Column(
@@ -239,11 +248,11 @@ fun ZenTimerScreen(
                                 bitmap = bitmap,
                                 contentDescription = appName,
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, BeigeBorder, RoundedCornerShape(12.dp))
+                                    .size(if (isCompact) 40.dp else 48.dp)
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .border(1.dp, BeigeBorder, RoundedCornerShape(11.dp))
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                         }
                     }
 
@@ -252,11 +261,11 @@ fun ZenTimerScreen(
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = InkPrimary,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
+                            fontSize = if (isCompact) 14.sp else 16.sp
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     if (!isWindowOpen) {
                         val minutes = remainingSeconds / 60
@@ -264,7 +273,7 @@ fun ZenTimerScreen(
                         Text(
                             text = String.format("%02d:%02d", minutes, seconds),
                             style = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 48.sp,
+                                fontSize = if (isCompact) 38.sp else 46.sp,
                                 fontWeight = FontWeight.Light,
                                 letterSpacing = 2.sp,
                                 color = InkPrimary
@@ -272,16 +281,17 @@ fun ZenTimerScreen(
                         )
                     } else {
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(14.dp),
                             color = KinGoldLight,
                             border = BorderStroke(1.dp, KinGold.copy(alpha = 0.6f)),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = "2 МИНУТЫ НА ВХОД",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = KinGold,
                                     fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
                                     letterSpacing = 1.sp
                                 ),
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -297,25 +307,28 @@ fun ZenTimerScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Card(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = BeigeSurface),
                     border = BorderStroke(1.dp, BeigeBorder),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = if (isCompact) 10.dp else 14.dp)
                 ) {
                     Text(
                         text = if (!isWindowOpen)
-                            "Ограничение активно. Сделайте вдох и вернитесь к своим делам. Когда рис сварится, вы получите уведомление."
+                            "Ограничение активно. Сделайте вдох и вернитесь к делам. Когда рис сварится, вы получите уведомление."
                         else
                             "Окно доступа открыто! Войдите в приложение сейчас, чтобы пользоваться им свободно до выключения экрана.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = InkSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
+                            fontSize = if (isCompact) 11.5.sp else 12.sp,
+                            lineHeight = if (isCompact) 16.sp else 18.sp,
                             textAlign = TextAlign.Center
                         ),
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
+                        modifier = Modifier.padding(
+                            horizontal = 16.dp,
+                            vertical = if (isCompact) 10.dp else 12.dp
+                        )
                     )
                 }
 
@@ -329,7 +342,7 @@ fun ZenTimerScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(if (isCompact) 46.dp else 52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ShuIro,
@@ -340,18 +353,18 @@ fun ZenTimerScreen(
                             text = "🌸 Войти в $appName",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp
+                                fontSize = 14.sp
                             )
                         )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 OutlinedButton(
                     onClick = onExit,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
+                        .height(if (isCompact) 46.dp else 50.dp),
                     shape = RoundedCornerShape(14.dp),
                     border = BorderStroke(1.dp, BeigeBorder),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = InkSecondary)

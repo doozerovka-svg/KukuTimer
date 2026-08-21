@@ -17,13 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kukutimer.theme.*
 import com.example.kukutimer.ui.components.BonsaiWatermarkBackground
+import com.example.kukutimer.ui.tutorial.TutorialScreen
 
 @Composable
 fun OnboardingScreen(
@@ -35,7 +35,16 @@ fun OnboardingScreen(
     onRequestNotifications: () -> Unit,
     onComplete: () -> Unit
 ) {
+    var showTutorial by remember { mutableStateOf(true) }
     var currentStep by remember { mutableStateOf(1) }
+
+    if (showTutorial) {
+        TutorialScreen(
+            onFinish = { showTutorial = false },
+            onSkip = { showTutorial = false }
+        )
+        return
+    }
 
     // Auto-advance step if permission was granted
     LaunchedEffect(usageAccessGranted, overlayGranted, notificationGranted) {
@@ -47,25 +56,31 @@ fun OnboardingScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(BeigeBackground)
     ) {
+        val screenHeight = maxHeight
+        val isCompact = screenHeight < 680.dp
+
         // Watermark Bonsai
         BonsaiWatermarkBackground(alpha = 0.08f)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = 40.dp),
+                .padding(
+                    horizontal = 24.dp,
+                    vertical = if (isCompact) 20.dp else 36.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp)
+                modifier = Modifier.padding(top = if (isCompact) 4.dp else 12.dp)
             ) {
                 Text(
                     text = "白百合 • 導き", // Shirayuri • Guidance
@@ -74,16 +89,17 @@ fun OnboardingScreen(
                     letterSpacing = 4.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Начало пути",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         color = InkPrimary,
                         fontWeight = FontWeight.Light,
+                        fontSize = if (isCompact) 20.sp else 24.sp,
                         letterSpacing = 1.sp
                     )
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Поэтапная настройка для осознанного использования",
                     style = MaterialTheme.typography.bodySmall.copy(
@@ -93,7 +109,7 @@ fun OnboardingScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(if (isCompact) 14.dp else 20.dp))
 
                 // Progress Step Indicators (1, 2, 3)
                 Row(
@@ -110,12 +126,12 @@ fun OnboardingScreen(
 
             // Step Content Card
             Card(
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(containerColor = BeigeSurface),
                 border = BorderStroke(1.dp, BeigeBorder),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp)
+                    .padding(vertical = if (isCompact) 8.dp else 14.dp)
             ) {
                 AnimatedContent(
                     targetState = currentStep,
@@ -125,39 +141,39 @@ fun OnboardingScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(28.dp),
+                            .padding(horizontal = 22.dp, vertical = if (isCompact) 18.dp else 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         when (step) {
                             1 -> {
-                                Text("🌾", fontSize = 44.sp)
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("🌾", fontSize = if (isCompact) 36.sp else 44.sp)
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Этап 1: Доступ к использованию",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = InkPrimary,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 16.sp
+                                        fontSize = 15.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "Позволяет Kuku Timer определять момент запуска выбранных приложений, чтобы вовремя активировать 10-минутное ожидание.",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = InkSecondary,
-                                        fontSize = 13.sp,
-                                        lineHeight = 20.sp
+                                        fontSize = 12.5.sp,
+                                        lineHeight = 18.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(18.dp))
                                 if (!usageAccessGranted) {
                                     Button(
                                         onClick = onRequestUsageAccess,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(50.dp),
+                                            .height(48.dp),
                                         shape = RoundedCornerShape(14.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = ShuIro, contentColor = BeigeSurface)
                                     ) {
@@ -173,41 +189,41 @@ fun OnboardingScreen(
                                             text = "✓ Разрешение предоставлено",
                                             color = MatsuGreen,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                            fontSize = 12.5.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                                         )
                                     }
                                 }
                             }
                             2 -> {
-                                Text("🪟", fontSize = 44.sp)
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("🪟", fontSize = if (isCompact) 36.sp else 44.sp)
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Этап 2: Показ поверх других окон",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = InkPrimary,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 16.sp
+                                        fontSize = 15.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Необходимо для отображения экрана блокировки с таймером и дышащим кругом прямо поверх выбранного приложения.",
+                                    text = "Необходимо для отображения экрана блокировки с таймером прямо поверх выбранного приложения.",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = InkSecondary,
-                                        fontSize = 13.sp,
-                                        lineHeight = 20.sp
+                                        fontSize = 12.5.sp,
+                                        lineHeight = 18.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(18.dp))
                                 if (!overlayGranted) {
                                     Button(
                                         onClick = onRequestOverlay,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(50.dp),
+                                            .height(48.dp),
                                         shape = RoundedCornerShape(14.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = ShuIro, contentColor = BeigeSurface)
                                     ) {
@@ -223,41 +239,41 @@ fun OnboardingScreen(
                                             text = "✓ Разрешение предоставлено",
                                             color = MatsuGreen,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                            fontSize = 12.5.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                                         )
                                     }
                                 }
                             }
                             3 -> {
-                                Text("🔔", fontSize = 44.sp)
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("🔔", fontSize = if (isCompact) 36.sp else 44.sp)
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "Этап 3: Оповещение о готовности",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = InkPrimary,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 16.sp
+                                        fontSize = 15.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "Система уведомит вас ровно через 10 минут, когда «рис сварится», чтобы вы успели войти в приложение в 2-минутное окно.",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = InkSecondary,
-                                        fontSize = 13.sp,
-                                        lineHeight = 20.sp
+                                        fontSize = 12.5.sp,
+                                        lineHeight = 18.sp
                                     ),
                                     textAlign = TextAlign.Center
                                 )
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(18.dp))
                                 if (!notificationGranted) {
                                     Button(
                                         onClick = onRequestNotifications,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(50.dp),
+                                            .height(48.dp),
                                         shape = RoundedCornerShape(14.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = ShuIro, contentColor = BeigeSurface)
                                     ) {
@@ -273,8 +289,8 @@ fun OnboardingScreen(
                                             text = "✓ Уведомления включены",
                                             color = MatsuGreen,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp,
-                                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                            fontSize = 12.5.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                                         )
                                     }
                                 }
@@ -294,29 +310,32 @@ fun OnboardingScreen(
                         onClick = { currentStep++ },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(if (isCompact) 46.dp else 50.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = InkPrimary, contentColor = BeigeSurface)
                     ) {
-                        Text("Следующий этап →", fontSize = 14.sp)
+                        Text("Следующий этап →", fontSize = 13.sp)
                     }
                 } else {
                     Button(
                         onClick = onComplete,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .height(if (isCompact) 46.dp else 50.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ShuIro, contentColor = BeigeSurface)
                     ) {
-                        Text("🍙 Начать использование Kuku Timer", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text("🍙 Начать использование Kuku Timer", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
 
                 if (currentStep > 1) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(onClick = { currentStep-- }) {
-                        Text("← Назад", color = InkSecondary, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TextButton(
+                        onClick = { currentStep-- },
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        Text("← Назад", color = InkSecondary, fontSize = 12.sp)
                     }
                 }
             }
@@ -339,7 +358,7 @@ private fun StepIndicator(step: Int, currentStep: Int, isDone: Boolean) {
 
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(30.dp)
             .clip(CircleShape)
             .background(bgColor)
             .border(1.dp, if (isCurrent) ShuIro else BeigeBorder, CircleShape),
@@ -348,7 +367,7 @@ private fun StepIndicator(step: Int, currentStep: Int, isDone: Boolean) {
         Text(
             text = if (isDone) "✓" else "$step",
             color = textColor,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -358,7 +377,7 @@ private fun StepIndicator(step: Int, currentStep: Int, isDone: Boolean) {
 private fun StepDivider(isDone: Boolean) {
     Box(
         modifier = Modifier
-            .width(28.dp)
+            .width(24.dp)
             .height(2.dp)
             .background(if (isDone) MatsuGreen else BeigeBorder)
     )

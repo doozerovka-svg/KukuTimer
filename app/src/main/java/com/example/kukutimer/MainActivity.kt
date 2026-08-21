@@ -47,6 +47,7 @@ import com.example.kukutimer.service.AppMonitorService
 import com.example.kukutimer.theme.*
 import com.example.kukutimer.ui.OnboardingScreen
 import com.example.kukutimer.ui.components.BonsaiWatermarkBackground
+import com.example.kukutimer.ui.tutorial.TutorialScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -213,8 +214,18 @@ fun MainScreen(
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(AppFilterTab.DOWNLOADED) }
     var searchQuery by remember { mutableStateOf("") }
+    var showTutorialModal by remember { mutableStateOf(false) }
 
     val isProtectionActive = usageAccessGranted && overlayGranted
+
+    if (showTutorialModal) {
+        TutorialScreen(
+            onFinish = { showTutorialModal = false },
+            onSkip = { showTutorialModal = false },
+            isModal = true
+        )
+        return
+    }
 
     // Load ALL applications on the device asynchronously
     LaunchedEffect(Unit) {
@@ -284,24 +295,27 @@ fun MainScreen(
     val systemCount = remember(allApps) { allApps.count { it.isSystem } }
     val restrictedCount = restrictedApps.size
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(BeigeBackground)
     ) {
+        val screenWidth = maxWidth
+        val isNarrow = screenWidth < 360.dp
+
         // Semi-transparent Japanese Bonsai Watermark
         BonsaiWatermarkBackground(alpha = 0.07f)
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = if (isNarrow) 14.dp else 18.dp, vertical = 12.dp)
         ) {
-            // Header with Japanese Calligraphy & Status Seal
+            // Header with Japanese Calligraphy & Philosophy Button & Status Seal
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 14.dp),
+                    .padding(top = 8.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -328,46 +342,69 @@ fun MainScreen(
                         style = MaterialTheme.typography.headlineMedium.copy(
                             color = InkPrimary,
                             fontWeight = FontWeight.Light,
-                            letterSpacing = 1.sp
+                            fontSize = if (isNarrow) 20.sp else 24.sp,
+                            letterSpacing = 0.5.sp
                         )
                     )
                     Text(
                         text = "10 минут ожидания для осознанности",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = InkSecondary,
-                            fontSize = 12.sp
+                            fontSize = 11.5.sp
                         )
                     )
                 }
 
-                // Inkan Seal Status
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (isProtectionActive) MatsuGreenLight else ShuIroLight,
-                    border = BorderStroke(
-                        1.dp,
-                        if (isProtectionActive) MatsuGreen.copy(alpha = 0.5f) else ShuIro.copy(alpha = 0.4f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Tutorial / Philosophy Button
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = KinGoldLight,
+                        border = BorderStroke(1.dp, KinGold.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .clickable { showTutorialModal = true }
+                            .padding(end = 6.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(if (isProtectionActive) MatsuGreen else ShuIro)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isProtectionActive) "Защита активна" else "Требует настройки",
+                            text = "🍙 Обучение",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isProtectionActive) MatsuGreen else ShuIro,
+                                color = KinGold,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 11.sp
-                            )
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                         )
+                    }
+
+                    // Inkan Seal Status
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isProtectionActive) MatsuGreenLight else ShuIroLight,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isProtectionActive) MatsuGreen.copy(alpha = 0.5f) else ShuIro.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isProtectionActive) MatsuGreen else ShuIro)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isProtectionActive) "Активен" else "Настройка",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = if (isProtectionActive) MatsuGreen else ShuIro,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -407,7 +444,7 @@ fun MainScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 10.dp)
+                    .padding(bottom = 8.dp)
             )
 
             // Category Scrollable Tabs with Kanji Labels
@@ -416,7 +453,7 @@ fun MainScreen(
                 edgePadding = 0.dp,
                 divider = {},
                 containerColor = Color.Transparent,
-                modifier = Modifier.padding(bottom = 10.dp)
+                modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 AppFilterTab.values().forEach { tab ->
                     val count = when (tab) {
@@ -446,7 +483,7 @@ fun MainScreen(
                                     text = "${tab.title} ($count)",
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     color = if (isSelected) InkPrimary else InkSecondary,
-                                    fontSize = 13.sp
+                                    fontSize = 12.5.sp
                                 )
                             }
                         }
