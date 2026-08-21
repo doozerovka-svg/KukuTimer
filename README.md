@@ -33,6 +33,10 @@ Traditional app blockers either:
 - 🌙 **Session Lifecycle:** Automatic session reset upon screen lock (`ACTION_SCREEN_OFF`), ensuring you remain mindful each time you pick up your phone.
 - 🎨 **Modern Android Tech Stack:** Built with Jetpack Compose, Kotlin Coroutines, DataStore Preferences, and Material 3 design.
 
+## 📥 Download APK
+
+You can download the latest compiled Android APK directly from the [Releases page](https://github.com/doozerovka-svg/KukuTimer/releases).
+
 ---
 
 ## 🛠 Tech Stack & Architecture
