@@ -1,26 +1,29 @@
 package com.example.kukutimer.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
-val ZenColorScheme = darkColorScheme(
+val ZenLightColorScheme = lightColorScheme(
     primary = ShuIro,
-    onPrimary = Shirayuri,
-    primaryContainer = ShuIroGlow,
-    onPrimaryContainer = Shirayuri,
+    onPrimary = BeigeSurface,
+    primaryContainer = ShuIroLight,
+    onPrimaryContainer = ShuIro,
     secondary = KinGold,
-    onSecondary = SumiDark,
+    onSecondary = BeigeSurface,
+    secondaryContainer = KinGoldLight,
+    onSecondaryContainer = KinGold,
     tertiary = MatsuGreen,
-    onTertiary = Shirayuri,
-    background = SumiDark,
-    onBackground = InkTextPrimary,
-    surface = SumiSurface,
-    onSurface = InkTextPrimary,
-    surfaceVariant = SumiCard,
-    onSurfaceVariant = InkTextSecondary,
-    outline = SumiBorder
+    onTertiary = BeigeSurface,
+    tertiaryContainer = MatsuGreenLight,
+    onTertiaryContainer = MatsuGreen,
+    background = BeigeBackground,
+    onBackground = InkPrimary,
+    surface = BeigeSurface,
+    onSurface = InkPrimary,
+    surfaceVariant = BeigeCard,
+    onSurfaceVariant = InkSecondary,
+    outline = BeigeBorder
 )
 
 @Composable
@@ -28,7 +31,7 @@ fun KukuTimerTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = ZenColorScheme,
+        colorScheme = ZenLightColorScheme,
         typography = Typography,
         content = content
     )

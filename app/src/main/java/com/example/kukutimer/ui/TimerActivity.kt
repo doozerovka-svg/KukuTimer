@@ -9,8 +9,7 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,15 +20,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,10 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.kukutimer.data.AppPreferences
 import com.example.kukutimer.theme.*
+import com.example.kukutimer.ui.components.RiceBowlWatermarkBackground
+import com.example.kukutimer.ui.components.RiceGrainDial
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.sin
 
 class TimerActivity : ComponentActivity() {
     private lateinit var appPreferences: AppPreferences
@@ -58,7 +53,7 @@ class TimerActivity : ComponentActivity() {
             KukuTimerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = SumiDark
+                    color = BeigeBackground
                 ) {
                     ZenTimerScreen(
                         targetPackage = targetPackage,
@@ -147,35 +142,26 @@ fun ZenTimerScreen(
         }
     }
 
-    // Meditative Breathing Animation
-    val infiniteTransition = rememberInfiniteTransition(label = "ZenBreathing")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "Pulse"
-    )
-
-    val rotationAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(24000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "Rotation"
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SumiDark)
+            .background(BeigeBackground)
     ) {
-        // Decorative Traditional Sumi-e Top & Bottom Border Pattern
-        WagaraHeaderDecoration(modifier = Modifier.align(Alignment.TopCenter))
+        // Subtle Semi-transparent Japanese Rice Bowl Background Watermark
+        RiceBowlWatermarkBackground(alpha = 0.08f)
+
+        // Top Vermilion Ribbon
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, ShuIro, KinGold, Color.Transparent)
+                    )
+                )
+        )
 
         Column(
             modifier = Modifier
@@ -184,55 +170,50 @@ fun ZenTimerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header Section: Japanese Motifs
+            // Header Section: Philosophy & Japanese Calligraphy
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 28.dp)
+                modifier = Modifier.padding(top = 20.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "一炊の夢", // "Dream while cooking a single pot of rice" (Zen idiom)
-                        fontSize = 13.sp,
-                        color = ShuIro,
-                        letterSpacing = 6.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = "一炊の夢", // "Dream during the cooking of a pot of rice"
+                    fontSize = 13.sp,
+                    color = ShuIro,
+                    letterSpacing = 6.sp,
+                    fontWeight = FontWeight.Bold
+                )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
                     text = "KUKU TIMER",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontSize = 11.sp,
-                        letterSpacing = 5.sp,
-                        color = InkTextSecondary,
+                        letterSpacing = 4.sp,
+                        color = InkSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = if (isWindowOpen) "Котел закипел. Рис готов" else "Котел с рисом закипает",
+                    text = if (isWindowOpen) "Котел закипел. Рис готов" else "Котел с рисом закипает...",
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        color = Shirayuri,
+                        color = InkPrimary,
                         fontWeight = FontWeight.Light,
                         letterSpacing = 1.sp
                     ),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
                     text = if (isWindowOpen)
-                        "«Врата открыты — осознанность достигнута»"
+                        "«Врата открыты — осознанность подтверждена»"
                     else
-                        "«Шанс на спасение, пока варится котел с рисом»",
+                        "«Человеку даётся шанс на спасение, пока варится рис»",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = KinGold,
                         fontFamily = FontFamily.Serif,
@@ -242,49 +223,11 @@ fun ZenTimerScreen(
                 )
             }
 
-            // Central Zen Ensō Dial & Target App Info
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(280.dp)
-                    .padding(8.dp)
+            // Central Zen Dial with Animated Rice Grains
+            RiceGrainDial(
+                modifier = Modifier.size(280.dp),
+                isReady = isWindowOpen
             ) {
-                // Zen Ensō Circle Canvas
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val strokeWidth = 3.dp.toPx()
-                    val radius = (size.minDimension - strokeWidth * 4) / 2
-                    val center = Offset(size.width / 2, size.height / 2)
-
-                    // Outer faint stone ring
-                    drawCircle(
-                        color = SumiBorder.copy(alpha = 0.4f),
-                        radius = radius + 12.dp.toPx(),
-                        center = center,
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-
-                    // Breathing Ensō Ring
-                    val ringColor = if (isWindowOpen) KinGold else ShuIro
-                    drawCircle(
-                        brush = Brush.sweepGradient(
-                            listOf(
-                                ringColor.copy(alpha = 0.1f),
-                                ringColor.copy(alpha = 0.85f),
-                                ringColor.copy(alpha = 0.2f),
-                                ringColor
-                            ),
-                            center = center
-                        ),
-                        radius = radius * pulseScale,
-                        center = center,
-                        style = Stroke(
-                            width = if (isWindowOpen) 4.dp.toPx() else 3.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
-                    )
-                }
-
-                // Center Content: App Icon & Digital Timer
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -296,24 +239,24 @@ fun ZenTimerScreen(
                                 bitmap = bitmap,
                                 contentDescription = appName,
                                 modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .border(1.dp, SumiBorder, RoundedCornerShape(14.dp))
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.dp, BeigeBorder, RoundedCornerShape(12.dp))
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
 
                     Text(
                         text = appName,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            color = Shirayuri,
+                            color = InkPrimary,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp
+                            fontSize = 15.sp
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     if (!isWindowOpen) {
                         val minutes = remainingSeconds / 60
@@ -321,18 +264,18 @@ fun ZenTimerScreen(
                         Text(
                             text = String.format("%02d:%02d", minutes, seconds),
                             style = MaterialTheme.typography.displayLarge.copy(
-                                fontSize = 52.sp,
+                                fontSize = 48.sp,
                                 fontWeight = FontWeight.Light,
                                 letterSpacing = 2.sp,
-                                color = Shirayuri
+                                color = InkPrimary
                             )
                         )
                     } else {
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = KinGold.copy(alpha = 0.15f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, KinGold.copy(alpha = 0.6f)),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            color = KinGoldLight,
+                            border = BorderStroke(1.dp, KinGold.copy(alpha = 0.6f)),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = "2 МИНУТЫ НА ВХОД",
@@ -341,7 +284,7 @@ fun ZenTimerScreen(
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 1.sp
                                 ),
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -355,11 +298,11 @@ fun ZenTimerScreen(
             ) {
                 Card(
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = SumiCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SumiBorder.copy(alpha = 0.5f)),
+                    colors = CardDefaults.cardColors(containerColor = BeigeSurface),
+                    border = BorderStroke(1.dp, BeigeBorder),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 18.dp)
+                        .padding(bottom = 16.dp)
                 ) {
                     Text(
                         text = if (!isWindowOpen)
@@ -367,12 +310,12 @@ fun ZenTimerScreen(
                         else
                             "Окно доступа открыто! Войдите в приложение сейчас, чтобы пользоваться им свободно до выключения экрана.",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = InkTextSecondary,
+                            color = InkSecondary,
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
                             textAlign = TextAlign.Center
                         ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
                     )
                 }
 
@@ -386,19 +329,18 @@ fun ZenTimerScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
+                            .height(52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ShuIro,
-                            contentColor = Shirayuri
+                            contentColor = BeigeSurface
                         )
                     ) {
                         Text(
                             text = "🌸 Войти в $appName",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
-                                letterSpacing = 0.5.sp
+                                fontSize = 15.sp
                             )
                         )
                     }
@@ -409,15 +351,15 @@ fun ZenTimerScreen(
                     onClick = onExit,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(50.dp),
                     shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SumiBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = InkTextSecondary)
+                    border = BorderStroke(1.dp, BeigeBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = InkSecondary)
                 ) {
                     Text(
                         text = "Вернуться на главный экран",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
                     )
@@ -425,25 +367,6 @@ fun ZenTimerScreen(
             }
         }
     }
-}
-
-@Composable
-fun WagaraHeaderDecoration(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(6.dp)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        Color.Transparent,
-                        ShuIro.copy(alpha = 0.8f),
-                        KinGold.copy(alpha = 0.8f),
-                        Color.Transparent
-                    )
-                )
-            )
-    )
 }
 
 private fun Drawable.toComposeBitmap(): ImageBitmap? {

@@ -2,7 +2,6 @@ package com.example.kukutimer
 
 import android.Manifest
 import android.app.AppOpsManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -15,9 +14,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.text.TextUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -35,11 +34,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,8 +44,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import com.example.kukutimer.data.AppPreferences
 import com.example.kukutimer.service.AppMonitorService
-import com.example.kukutimer.service.KukuAccessibilityService
 import com.example.kukutimer.theme.*
+import com.example.kukutimer.ui.OnboardingScreen
+import com.example.kukutimer.ui.components.BonsaiWatermarkBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,7 +70,6 @@ class MainActivity : ComponentActivity() {
 
     private val usageAccessState = mutableStateOf(false)
     private val overlayState = mutableStateOf(false)
-    private val accessibilityState = mutableStateOf(false)
     private val notificationState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,23 +78,45 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             KukuTimerTheme {
+                val scope = rememberCoroutineScope()
+                val isOnboardingCompleted by appPreferences.isOnboardingCompleted.collectAsState(initial = false)
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = SumiDark
+                    color = BeigeBackground
                 ) {
-                    MainScreen(
-                        appPreferences = appPreferences,
-                        packageManager = packageManager,
-                        usageAccessGranted = usageAccessState.value,
-                        overlayGranted = overlayState.value,
-                        accessibilityGranted = accessibilityState.value,
-                        notificationGranted = notificationState.value,
-                        onRequestUsageAccess = { requestUsageAccess() },
-                        onRequestOverlay = { requestOverlayPermission() },
-                        onRequestAccessibility = { requestAccessibilityPermission() },
-                        onRequestNotifications = { requestNotificationPermission() },
-                        onRestartService = { startMonitoringService() }
-                    )
+                    Crossfade(
+                        targetState = isOnboardingCompleted && usageAccessState.value && overlayState.value,
+                        label = "ScreenTransition"
+                    ) { showMain ->
+                        if (!showMain) {
+                            OnboardingScreen(
+                                usageAccessGranted = usageAccessState.value,
+                                overlayGranted = overlayState.value,
+                                notificationGranted = notificationState.value,
+                                onRequestUsageAccess = { requestUsageAccess() },
+                                onRequestOverlay = { requestOverlayPermission() },
+                                onRequestNotifications = { requestNotificationPermission() },
+                                onComplete = {
+                                    scope.launch {
+                                        appPreferences.setOnboardingCompleted(true)
+                                    }
+                                }
+                            )
+                        } else {
+                            MainScreen(
+                                appPreferences = appPreferences,
+                                packageManager = packageManager,
+                                usageAccessGranted = usageAccessState.value,
+                                overlayGranted = overlayState.value,
+                                notificationGranted = notificationState.value,
+                                onRequestUsageAccess = { requestUsageAccess() },
+                                onRequestOverlay = { requestOverlayPermission() },
+                                onRequestNotifications = { requestNotificationPermission() },
+                                onRestartService = { startMonitoringService() }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -106,13 +125,14 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkPermissions()
-        startMonitoringService()
+        if (usageAccessState.value) {
+            startMonitoringService()
+        }
     }
 
     private fun checkPermissions() {
         usageAccessState.value = hasUsageStatsPermission()
         overlayState.value = Settings.canDrawOverlays(this)
-        accessibilityState.value = isAccessibilityServiceEnabled(this, KukuAccessibilityService::class.java)
         notificationState.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else {
@@ -150,24 +170,6 @@ class MainActivity : ComponentActivity() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun isAccessibilityServiceEnabled(context: Context, serviceClass: Class<*>): Boolean {
-        val expectedComponentName = ComponentName(context, serviceClass)
-        val enabledServicesSetting = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        val colonSplitter = TextUtils.SimpleStringSplitter(':')
-        colonSplitter.setString(enabledServicesSetting)
-        while (colonSplitter.hasNext()) {
-            val componentNameString = colonSplitter.next()
-            val enabledComponent = ComponentName.unflattenFromString(componentNameString)
-            if (enabledComponent != null && enabledComponent == expectedComponentName) {
-                return true
-            }
-        }
-        return false
-    }
-
     private fun requestUsageAccess() {
         startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
@@ -177,11 +179,6 @@ class MainActivity : ComponentActivity() {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:$packageName")
         )
-        startActivity(intent)
-    }
-
-    private fun requestAccessibilityPermission() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         startActivity(intent)
     }
 
@@ -203,11 +200,9 @@ fun MainScreen(
     packageManager: PackageManager,
     usageAccessGranted: Boolean,
     overlayGranted: Boolean,
-    accessibilityGranted: Boolean,
     notificationGranted: Boolean,
     onRequestUsageAccess: () -> Unit,
     onRequestOverlay: () -> Unit,
-    onRequestAccessibility: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRestartService: () -> Unit
 ) {
@@ -219,9 +214,9 @@ fun MainScreen(
     var selectedTab by remember { mutableStateOf(AppFilterTab.DOWNLOADED) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val isProtectionActive = accessibilityGranted || (usageAccessGranted && overlayGranted)
+    val isProtectionActive = usageAccessGranted && overlayGranted
 
-    // Load ALL applications on the device
+    // Load ALL applications on the device asynchronously
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -289,321 +284,222 @@ fun MainScreen(
     val systemCount = remember(allApps) { allApps.count { it.isSystem } }
     val restrictedCount = restrictedApps.size
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SumiDark)
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .background(BeigeBackground)
     ) {
-        // App Header with Japanese Zen Calligraphy & Inkan Seal
-        Row(
+        // Semi-transparent Japanese Bonsai Watermark
+        BonsaiWatermarkBackground(alpha = 0.07f)
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "ククターマー",
-                        fontSize = 11.sp,
-                        color = ShuIro,
-                        letterSpacing = 4.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "• 白百合",
-                        fontSize = 11.sp,
-                        color = KinGold,
-                        letterSpacing = 2.sp
-                    )
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Kuku Timer",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        color = Shirayuri,
-                        fontWeight = FontWeight.Light,
-                        letterSpacing = 1.sp
-                    )
-                )
-                Text(
-                    text = "10 минут варки риса для осознанности",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = InkTextSecondary,
-                        fontSize = 12.sp
-                    )
-                )
-            }
-
-            // Traditional Status Seal
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (isProtectionActive) MatsuGreen.copy(alpha = 0.2f) else ShuIro.copy(alpha = 0.15f),
-                border = BorderStroke(
-                    1.dp,
-                    if (isProtectionActive) MatsuGreen.copy(alpha = 0.6f) else ShuIro.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(if (isProtectionActive) MatsuGreen else ShuIro)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isProtectionActive) "Защита активна" else "Требует настройки",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isProtectionActive) Shirayuri else ShuIro,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-            }
-        }
-
-        // Permissions Card with Clean Japanese Zen styling
-        if (!accessibilityGranted || !usageAccessGranted || !overlayGranted || !notificationGranted) {
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = SumiCard),
-                border = BorderStroke(1.dp, ShuIro.copy(alpha = 0.4f)),
+            // Header with Japanese Calligraphy & Status Seal
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 14.dp)
+                    .padding(top = 10.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "朱",
+                            text = "ククターマー",
+                            fontSize = 11.sp,
                             color = ShuIro,
-                            fontSize = 16.sp,
+                            letterSpacing = 4.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Активация мгновенного перехвата",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = Shirayuri,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
-                            )
+                            text = "• 白百合",
+                            fontSize = 11.sp,
+                            color = KinGold,
+                            letterSpacing = 2.sp
                         )
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Включите Kuku Timer в Спец. возможностях для мгновенного перехвата заблокированных приложений:",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = InkTextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
+                        text = "Kuku Timer",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            color = InkPrimary,
+                            fontWeight = FontWeight.Light,
+                            letterSpacing = 1.sp
                         )
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (!accessibilityGranted) {
-                        Button(
-                            onClick = onRequestAccessibility,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ShuIro,
-                                contentColor = Shirayuri
-                            )
-                        ) {
-                            Text(
-                                text = "👉 Включить в Спец. возможностях",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-
-                    if (!overlayGranted) {
-                        OutlinedButton(
-                            onClick = onRequestOverlay,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, SumiBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = InkTextPrimary)
-                        ) {
-                            Text("Показ поверх других приложений", fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-
-                    if (!usageAccessGranted) {
-                        OutlinedButton(
-                            onClick = onRequestUsageAccess,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, SumiBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = InkTextPrimary)
-                        ) {
-                            Text("Доступ к истории использования", fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                    }
-
-                    if (!notificationGranted) {
-                        OutlinedButton(
-                            onClick = onRequestNotifications,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, SumiBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = InkTextPrimary)
-                        ) {
-                            Text("Разрешить уведомления (окно 2 мин)", fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Minimalist Zen Search Bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = {
-                Text(
-                    text = "Поиск приложения (например, Часы)...",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = InkTextTertiary,
-                        fontSize = 13.sp
+                    Text(
+                        text = "10 минут ожидания для осознанности",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = InkSecondary,
+                            fontSize = 12.sp
+                        )
                     )
-                )
-            },
-            leadingIcon = {
-                Text("🔍", modifier = Modifier.padding(start = 12.dp), fontSize = 14.sp)
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Text("✕", fontWeight = FontWeight.Bold, color = InkTextSecondary, fontSize = 14.sp)
+                }
+
+                // Inkan Seal Status
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isProtectionActive) MatsuGreenLight else ShuIroLight,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isProtectionActive) MatsuGreen.copy(alpha = 0.5f) else ShuIro.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (isProtectionActive) MatsuGreen else ShuIro)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isProtectionActive) "Защита активна" else "Требует настройки",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isProtectionActive) MatsuGreen else ShuIro,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.sp
+                            )
+                        )
                     }
                 }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SumiSurface,
-                unfocusedContainerColor = SumiSurface,
-                focusedBorderColor = ShuIro.copy(alpha = 0.7f),
-                unfocusedBorderColor = SumiBorder,
-                focusedTextColor = Shirayuri,
-                unfocusedTextColor = Shirayuri
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
-        )
+            }
 
-        // Japanese Minimalist Category Scrollable Tabs
-        ScrollableTabRow(
-            selectedTabIndex = selectedTab.ordinal,
-            edgePadding = 0.dp,
-            divider = {},
-            containerColor = Color.Transparent,
-            modifier = Modifier.padding(bottom = 10.dp)
-        ) {
-            AppFilterTab.values().forEach { tab ->
-                val count = when (tab) {
-                    AppFilterTab.DOWNLOADED -> downloadedCount
-                    AppFilterTab.SYSTEM -> systemCount
-                    AppFilterTab.RESTRICTED -> restrictedCount
-                    AppFilterTab.ALL -> allApps.size
-                }
-                val isSelected = selectedTab == tab
-
-                Tab(
-                    selected = isSelected,
-                    onClick = { selectedTab = tab },
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = tab.kanji,
-                                fontSize = 11.sp,
-                                color = if (isSelected) ShuIro else InkTextTertiary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${tab.title} ($count)",
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isSelected) Shirayuri else InkTextSecondary,
-                                fontSize = 13.sp
-                            )
+            // Minimalist Washi Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(
+                        text = "Поиск приложения (например, Часы)...",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = InkTertiary,
+                            fontSize = 13.sp
+                        )
+                    )
+                },
+                leadingIcon = {
+                    Text("🔍", modifier = Modifier.padding(start = 12.dp), fontSize = 14.sp)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Text("✕", fontWeight = FontWeight.Bold, color = InkSecondary, fontSize = 14.sp)
                         }
                     }
-                )
-            }
-        }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = BeigeSurface,
+                    unfocusedContainerColor = BeigeSurface,
+                    focusedBorderColor = ShuIro.copy(alpha = 0.7f),
+                    unfocusedBorderColor = BeigeBorder,
+                    focusedTextColor = InkPrimary,
+                    unfocusedTextColor = InkPrimary
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+            )
 
-        // App List
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
+            // Category Scrollable Tabs with Kanji Labels
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab.ordinal,
+                edgePadding = 0.dp,
+                divider = {},
+                containerColor = Color.Transparent,
+                modifier = Modifier.padding(bottom = 10.dp)
             ) {
-                CircularProgressIndicator(
-                    color = ShuIro,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-        } else if (filteredApps.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (searchQuery.isNotEmpty()) "Ничего не найдено" else "В этой категории нет приложений",
-                    color = InkTextTertiary,
-                    fontSize = 13.sp
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(filteredApps, key = { it.packageName }) { app ->
-                    val isRestricted = restrictedApps.contains(app.packageName)
-                    ZenAppItemRow(
-                        app = app,
-                        isRestricted = isRestricted,
-                        onToggle = { checked ->
-                            scope.launch {
-                                appPreferences.setAppRestricted(app.packageName, checked)
+                AppFilterTab.values().forEach { tab ->
+                    val count = when (tab) {
+                        AppFilterTab.DOWNLOADED -> downloadedCount
+                        AppFilterTab.SYSTEM -> systemCount
+                        AppFilterTab.RESTRICTED -> restrictedCount
+                        AppFilterTab.ALL -> allApps.size
+                    }
+                    val isSelected = selectedTab == tab
+
+                    Tab(
+                        selected = isSelected,
+                        onClick = { selectedTab = tab },
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = tab.kanji,
+                                    fontSize = 11.sp,
+                                    color = if (isSelected) ShuIro else InkTertiary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${tab.title} ($count)",
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) InkPrimary else InkSecondary,
+                                    fontSize = 13.sp
+                                )
                             }
                         }
                     )
+                }
+            }
+
+            // App List
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = ShuIro,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            } else if (filteredApps.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (searchQuery.isNotEmpty()) "Ничего не найдено" else "В этой категории нет приложений",
+                        color = InkTertiary,
+                        fontSize = 13.sp
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(filteredApps, key = { it.packageName }) { app ->
+                        val isRestricted = restrictedApps.contains(app.packageName)
+                        ZenAppItemRow(
+                            app = app,
+                            isRestricted = isRestricted,
+                            onToggle = { checked ->
+                                scope.launch {
+                                    appPreferences.setAppRestricted(app.packageName, checked)
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -617,13 +513,13 @@ fun ZenAppItemRow(
     onToggle: (Boolean) -> Unit
 ) {
     val animatedBg by animateColorAsState(
-        targetValue = if (isRestricted) Color(0xFF261D1C) else SumiSurface,
+        targetValue = if (isRestricted) KinGoldLight else BeigeSurface,
         animationSpec = tween(300),
         label = "RowBg"
     )
 
     val animatedBorder by animateColorAsState(
-        targetValue = if (isRestricted) ShuIro.copy(alpha = 0.6f) else SumiBorder.copy(alpha = 0.6f),
+        targetValue = if (isRestricted) ShuIro.copy(alpha = 0.6f) else BeigeBorder,
         animationSpec = tween(300),
         label = "RowBorder"
     )
@@ -642,7 +538,7 @@ fun ZenAppItemRow(
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // App Icon with Sumi Border
+            // App Icon
             if (app.icon != null) {
                 val bitmap = remember(app.icon) { app.icon.toComposeBitmap() }
                 if (bitmap != null) {
@@ -652,7 +548,7 @@ fun ZenAppItemRow(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(RoundedCornerShape(11.dp))
-                            .border(0.5.dp, SumiBorder, RoundedCornerShape(11.dp))
+                            .border(0.5.dp, BeigeBorder, RoundedCornerShape(11.dp))
                     )
                 } else {
                     ZenDefaultAppIcon()
@@ -668,7 +564,7 @@ fun ZenAppItemRow(
                     Text(
                         text = app.name,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            color = Shirayuri,
+                            color = InkPrimary,
                             fontWeight = FontWeight.Medium,
                             fontSize = 15.sp
                         ),
@@ -679,13 +575,13 @@ fun ZenAppItemRow(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = SumiCard,
-                            border = BorderStroke(0.5.dp, SumiBorder)
+                            color = BeigeCard,
+                            border = BorderStroke(0.5.dp, BeigeBorder)
                         ) {
                             Text(
                                 text = "基幹",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = InkTextTertiary,
+                                    color = InkSecondary,
                                     fontSize = 9.sp
                                 ),
                                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
@@ -697,7 +593,7 @@ fun ZenAppItemRow(
                 Text(
                     text = app.packageName,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = InkTextTertiary,
+                        color = InkTertiary,
                         fontSize = 11.sp
                     ),
                     maxLines = 1,
@@ -711,11 +607,11 @@ fun ZenAppItemRow(
                 checked = isRestricted,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Shirayuri,
+                    checkedThumbColor = BeigeSurface,
                     checkedTrackColor = ShuIro,
-                    uncheckedThumbColor = InkTextTertiary,
-                    uncheckedTrackColor = SumiCard,
-                    uncheckedBorderColor = SumiBorder
+                    uncheckedThumbColor = InkTertiary,
+                    uncheckedTrackColor = BeigeCard,
+                    uncheckedBorderColor = BeigeBorder
                 )
             )
         }
@@ -728,8 +624,8 @@ fun ZenDefaultAppIcon() {
         modifier = Modifier
             .size(42.dp)
             .clip(RoundedCornerShape(11.dp))
-            .background(SumiCard)
-            .border(0.5.dp, SumiBorder, RoundedCornerShape(11.dp)),
+            .background(BeigeCard)
+            .border(0.5.dp, BeigeBorder, RoundedCornerShape(11.dp)),
         contentAlignment = Alignment.Center
     ) {
         Text("🍙", fontSize = 18.sp)

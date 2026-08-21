@@ -2,19 +2,23 @@ package com.example.kukutimer.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Traditional Japanese Colors (日本の伝統色) inspired by references
-val Shirayuri = Color(0xFFFDFCF5) // 白百合色 - Pure white lily
-val SumiDark = Color(0xFF111215)   // 墨黒 - Deep ink background
-val SumiSurface = Color(0xFF191A1E) // 漆黒 - Lacquer dark surface
-val SumiCard = Color(0xFF212329)    // 濡羽色 - Raven ink card
-val SumiBorder = Color(0xFF33363F)  // 硯石 - Inkstone border
+// Traditional Japanese Zen Light Beige Palette (日本の伝統・生成色・白百合)
+val BeigeBackground = Color(0xFFF7F5EE) // 生成り (Kinari) - Soft warm beige rice paper
+val BeigeSurface = Color(0xFFFDFCF7)    // 白百合 (Shirayuri) - Warm white card surface
+val BeigeCard = Color(0xFFF2EEE2)       // 和紙 (Washi) - Textured beige secondary surface
+val BeigeBorder = Color(0xFFE5DFC9)     // 砂利 (Jari) - Fine Zen garden stone border
+val BeigeBorderSubtle = Color(0xFFECE7D5) // Muted subtle divider
 
-val ShuIro = Color(0xFFD14945)     // 朱色 - Vermilion red (spider lily & maple accent)
-val ShuIroGlow = Color(0x33D14945) // Soft crimson glow
-val MatsuGreen = Color(0xFF4E6B56) // 松葉色 - Pine needle green (bonsai)
-val KinGold = Color(0xFFD9B46E)    // 砂金 - Muted Zen gold
+val InkPrimary = Color(0xFF24221F)      // 墨色 (Sumi) - Deep sumi ink primary text
+val InkSecondary = Color(0xFF757067)    // 灰墨 (Haizumi) - Soft charcoal secondary text
+val InkTertiary = Color(0xFFA6A094)     // 薄墨 (Usuzumi) - Light stone gray tertiary
 
-val WashiPaper = Color(0xFFF5F3EC) // 和紙 - Warm washi paper
-val InkTextPrimary = Color(0xFFEDEAE2) // Alabaster white text
-val InkTextSecondary = Color(0xFF9E9B93) // Ash ink secondary text
-val InkTextTertiary = Color(0xFF6B6964)  // Stone gray tertiary
+val ShuIro = Color(0xFFC74843)          // 朱色 (Shu-iro) - Traditional Japanese vermilion
+val ShuIroLight = Color(0xFFFBEBEA)     // 桜朱 (Sakura-shu) - Soft vermilion tint for badges
+val KinGold = Color(0xFFC59847)         // 金箔 (Kinpaku) - Warm matte gold
+val KinGoldLight = Color(0xFFFAF3E6)    // 黄金水 (Kogane) - Soft gold container
+val MatsuGreen = Color(0xFF4A6B54)      // 松葉 (Matsuba) - Pine needle green for active status
+val MatsuGreenLight = Color(0xFFEAF2EC) // 松風 - Soft pine green container
+
+val RiceGrainColor = Color(0xFFEDE6D6)  // 米粒 (Kome) - Rice grain accent
+val RiceGrainBorder = Color(0xFFDCD2BE) // Rice grain outline

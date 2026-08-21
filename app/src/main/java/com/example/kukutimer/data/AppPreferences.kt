@@ -16,8 +16,20 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ku
 class AppPreferences(private val context: Context) {
     private val RESTRICTED_APPS = stringSetPreferencesKey("restricted_apps")
     
+    private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+
     val restrictedApps: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[RESTRICTED_APPS] ?: emptySet()
+    }
+
+    val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[ONBOARDING_COMPLETED] ?: false
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[ONBOARDING_COMPLETED] = completed
+        }
     }
 
     suspend fun setAppRestricted(packageName: String, isRestricted: Boolean) {
