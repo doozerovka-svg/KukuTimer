@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Kuku Timer</string>
+    <string name="accessibility_service_description">Служба Kuku Timer мгновенно определяет запуск ограниченных приложений и отображает экран таймера для осознанного использования телефона.</string>
 </resources>

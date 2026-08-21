@@ -1,8 +1,8 @@
 package com.example.kukutimer
 
 import android.Manifest
-import android.app.AlarmManager
 import android.app.AppOpsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.TextUtils
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import com.example.kukutimer.data.AppPreferences
 import com.example.kukutimer.service.AppMonitorService
+import com.example.kukutimer.service.KukuAccessibilityService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
     private val usageAccessState = mutableStateOf(false)
     private val overlayState = mutableStateOf(false)
+    private val accessibilityState = mutableStateOf(false)
     private val notificationState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,9 +91,11 @@ class MainActivity : ComponentActivity() {
                         packageManager = packageManager,
                         usageAccessGranted = usageAccessState.value,
                         overlayGranted = overlayState.value,
+                        accessibilityGranted = accessibilityState.value,
                         notificationGranted = notificationState.value,
                         onRequestUsageAccess = { requestUsageAccess() },
                         onRequestOverlay = { requestOverlayPermission() },
+                        onRequestAccessibility = { requestAccessibilityPermission() },
                         onRequestNotifications = { requestNotificationPermission() },
                         onRestartService = { startMonitoringService() }
                     )
@@ -102,14 +107,13 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         checkPermissions()
-        if (usageAccessState.value) {
-            startMonitoringService()
-        }
+        startMonitoringService()
     }
 
     private fun checkPermissions() {
         usageAccessState.value = hasUsageStatsPermission()
         overlayState.value = Settings.canDrawOverlays(this)
+        accessibilityState.value = isAccessibilityServiceEnabled(this, KukuAccessibilityService::class.java)
         notificationState.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else {
@@ -118,11 +122,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startMonitoringService() {
-        val intent = Intent(this, AppMonitorService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+        try {
+            val intent = Intent(this, AppMonitorService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -143,6 +151,24 @@ class MainActivity : ComponentActivity() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    private fun isAccessibilityServiceEnabled(context: Context, serviceClass: Class<*>): Boolean {
+        val expectedComponentName = ComponentName(context, serviceClass)
+        val enabledServicesSetting = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val colonSplitter = TextUtils.SimpleStringSplitter(':')
+        colonSplitter.setString(enabledServicesSetting)
+        while (colonSplitter.hasNext()) {
+            val componentNameString = colonSplitter.next()
+            val enabledComponent = ComponentName.unflattenFromString(componentNameString)
+            if (enabledComponent != null && enabledComponent == expectedComponentName) {
+                return true
+            }
+        }
+        return false
+    }
+
     private fun requestUsageAccess() {
         startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
@@ -152,6 +178,11 @@ class MainActivity : ComponentActivity() {
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:$packageName")
         )
+        startActivity(intent)
+    }
+
+    private fun requestAccessibilityPermission() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         startActivity(intent)
     }
 
@@ -166,16 +197,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     appPreferences: AppPreferences,
     packageManager: PackageManager,
     usageAccessGranted: Boolean,
     overlayGranted: Boolean,
+    accessibilityGranted: Boolean,
     notificationGranted: Boolean,
     onRequestUsageAccess: () -> Unit,
     onRequestOverlay: () -> Unit,
+    onRequestAccessibility: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRestartService: () -> Unit
 ) {
@@ -187,28 +219,51 @@ fun MainScreen(
     var selectedTab by remember { mutableStateOf(AppFilterTab.DOWNLOADED) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // Load installed apps asynchronously
+    val isProtectionActive = (usageAccessGranted && overlayGranted) || accessibilityGranted
+
+    // Load ALL applications on the device
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            val installedPackages = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            val list = installedPackages.mapNotNull { appInfo ->
-                val name = packageManager.getApplicationLabel(appInfo).toString()
+            val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            val launcherActivities = packageManager.queryIntentActivities(launcherIntent, 0)
+            val appsMap = mutableMapOf<String, AppModel>()
+
+            // 1. Add all launcher apps (with real user-facing name and icon)
+            for (resolveInfo in launcherActivities) {
+                val pkg = resolveInfo.activityInfo?.packageName ?: continue
+                val name = resolveInfo.loadLabel(packageManager).toString()
+                val appInfo = resolveInfo.activityInfo.applicationInfo
                 val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 &&
                         (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0
-                val icon = try {
-                    packageManager.getApplicationIcon(appInfo)
-                } catch (e: Exception) {
-                    null
-                }
-                AppModel(
-                    packageName = appInfo.packageName,
+                val icon = try { resolveInfo.loadIcon(packageManager) } catch (e: Exception) { null }
+
+                appsMap[pkg] = AppModel(
+                    packageName = pkg,
                     name = name,
                     isSystem = isSystem,
                     icon = icon
                 )
-            }.sortedBy { it.name.lowercase() }
+            }
 
-            allApps = list
+            // 2. Add any other installed packages that might not be in launcher
+            val installedPackages = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            for (appInfo in installedPackages) {
+                if (!appsMap.containsKey(appInfo.packageName)) {
+                    val name = packageManager.getApplicationLabel(appInfo).toString()
+                    val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 &&
+                            (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0
+                    val icon = try { packageManager.getApplicationIcon(appInfo) } catch (e: Exception) { null }
+
+                    appsMap[appInfo.packageName] = AppModel(
+                        packageName = appInfo.packageName,
+                        name = name,
+                        isSystem = isSystem,
+                        icon = icon
+                    )
+                }
+            }
+
+            allApps = appsMap.values.sortedBy { it.name.lowercase() }
             isLoading = false
         }
     }
@@ -255,7 +310,7 @@ fun MainScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "10 минут варки риса перед входом",
+                    text = "10 минут ожидания перед входом",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
@@ -263,7 +318,7 @@ fun MainScreen(
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (usageAccessGranted && overlayGranted) Color(0xFF1E382B) else Color(0xFF3E2020)
+                color = if (isProtectionActive) Color(0xFF1E382B) else Color(0xFF3E2020)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -273,13 +328,13 @@ fun MainScreen(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (usageAccessGranted && overlayGranted) Color(0xFF4CAF50) else Color(0xFFE53935))
+                            .background(if (isProtectionActive) Color(0xFF4CAF50) else Color(0xFFE53935))
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (usageAccessGranted && overlayGranted) "Активен" else "Требует прав",
+                        text = if (isProtectionActive) "Защита активна" else "Нужны права",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (usageAccessGranted && overlayGranted) Color(0xFF81C784) else Color(0xFFE57373),
+                        color = if (isProtectionActive) Color(0xFF81C784) else Color(0xFFE57373),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -287,7 +342,7 @@ fun MainScreen(
         }
 
         // Permissions warning section
-        if (!usageAccessGranted || !overlayGranted || !notificationGranted) {
+        if (!accessibilityGranted || !usageAccessGranted || !overlayGranted || !notificationGranted) {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -297,30 +352,30 @@ fun MainScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("⚠️", fontSize = 20.sp)
+                        Text("⚡", fontSize = 20.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Необходимые разрешения",
+                            text = "Активация мгновенного перехвата",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Для перехвата приложений и показа таймера требуются разрешения Android:",
+                        text = "Включите службу в Спец. возможностях для 100% надежного перехвата без задержек:",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.LightGray
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    if (!usageAccessGranted) {
+                    if (!accessibilityGranted) {
                         Button(
-                            onClick = onRequestUsageAccess,
+                            onClick = onRequestAccessibility,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("1. Разрешить доступ к истории использования", color = MaterialTheme.colorScheme.onPrimary)
+                            Text("👉 Включить Kuku Timer в Спец. возможностях", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                     }
@@ -331,7 +386,18 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("2. Разрешить показ поверх других приложений")
+                            Text("Показ поверх других приложений")
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
+                    if (!usageAccessGranted) {
+                        OutlinedButton(
+                            onClick = onRequestUsageAccess,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Доступ к истории использования")
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                     }
@@ -342,7 +408,7 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("3. Разрешить уведомления (для окна 2 минут)")
+                            Text("Разрешить уведомления (окно 2 мин)")
                         }
                     }
                 }
@@ -353,7 +419,7 @@ fun MainScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Поиск по имени или пакету...", style = MaterialTheme.typography.bodyMedium) },
+            placeholder = { Text("Поиск по названию или пакету...", style = MaterialTheme.typography.bodyMedium) },
             leadingIcon = { Text("🔍", modifier = Modifier.padding(start = 12.dp)) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {

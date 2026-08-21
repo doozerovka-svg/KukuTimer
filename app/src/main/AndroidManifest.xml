@@ -32,14 +32,28 @@
             android:name=".ui.TimerActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:taskAffinity="com.example.kukutimer.timer"
             android:launchMode="singleTask"
             android:theme="@style/Theme.KukuTimer" />
+
         <service
             android:name=".service.AppMonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                       android:value="Monitoring top application for digital wellbeing restrictions" />
+        </service>
+
+        <service
+            android:name=".service.KukuAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
         </service>
         
         <receiver android:name=".receiver.AlarmReceiver" android:exported="false" />
