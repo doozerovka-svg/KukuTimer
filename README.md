@@ -3,7 +3,10 @@
 > **"A chance for salvation while the pot of rice comes to a boil."**  
 > *«Шанс на спасение, пока закипает котел с рисом»*
 
-**Kuku Timer** is an intentional digital detox & mindful focus Android application. Inspired by traditional Japanese folklore and Buddhist parables of delayed gratification, it introduces a mindful friction barrier before opening distracting or habitual mobile applications.
+**Kuku Timer** is an intentional digital detox & mindful focus application for Android and iOS. Inspired by traditional Japanese folklore and Buddhist parables of delayed gratification, it introduces a mindful friction barrier before opening distracting or habitual mobile applications.
+
+- 🤖 **Android Version:** Jetpack Compose, Kotlin 2.x, Foreground Service & `UsageStatsManager`.
+- 🍏 **iOS Version:** SwiftUI, Swift 5.9, Apple Screen Time API (`FamilyControls`, `ManagedSettings`). See [iOS Documentation](ios/README.md).
 
 ---
 

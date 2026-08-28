@@ -1,0 +1,151 @@
+name: Build & Release iOS
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      upload_to_testflight:
+        description: 'Upload build to App Store Connect / TestFlight'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS (Xcode on macOS Cloud)
+    runs-on: macos-14 # Apple Silicon runner with macOS 14 & Xcode 15+
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+
+      - name: Generate Xcode Project (.xcodeproj)
+        run: |
+          cd ios
+          xcodegen generate
+
+      # If Apple Developer signing certificates are provided in GitHub Secrets
+      - name: Set up Apple Signing Certificate & Profiles (Optional)
+        if: env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: "temporary-keychain-pass"
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import Distribution Certificate
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+          echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o $CERT_PATH
+          security import $CERT_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Import Provisioning Profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PROFILE_PATH
+
+      # Build for Simulator / Validation (Always runs to verify Swift code compilation)
+      - name: Build & Validate iOS App & Extensions
+        run: |
+          cd ios
+          xcodebuild -project KukuTimer.xcodeproj \
+            -scheme KukuTimer \
+            -destination 'generic/platform=iOS Simulator' \
+            clean build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      # Archive & Export IPA (if signing certificate exists)
+      - name: Archive & Export IPA
+        if: env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        run: |
+          cd ios
+          # 1. Archive
+          xcodebuild -project KukuTimer.xcodeproj \
+            -scheme KukuTimer \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/KukuTimer.xcarchive \
+            archive
+
+          # 2. Export IPA
+          cat <<EOF > exportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath build/KukuTimer.xcarchive \
+            -exportPath build/ipa_output \
+            -exportOptionsPlist exportOptions.plist
+
+      # Upload Artifacts (IPA or Build outputs)
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: KukuTimer-iOS-Build
+          path: |
+            ios/build/ipa_output/*.ipa
+            ios/KukuTimer.xcodeproj
+          if-no-files-found: warn
+
+      # Upload to App Store Connect / TestFlight (if triggered and credentials provided)
+      - name: Upload to App Store Connect (TestFlight)
+        if: (inputs.upload_to_testflight == true || startsWith(github.ref, 'refs/tags/')) && env.APP_STORE_CONNECT_API_KEY_BASE64 != ''
+        env:
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          # Setup App Store Connect API Key
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo -n "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode -o ~/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
+
+          # Upload via xcrun altool
+          xcrun altool --upload-app \
+            -f ios/build/ipa_output/KukuTimer.ipa \
+            -t ios \
+            --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
+
+      # Attach IPA to GitHub Release if tag is pushed
+      - name: Attach IPA to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ios/build/ipa_output/*.ipa
+          draft: false
+          prerelease: false
+          generate_release_notes: true

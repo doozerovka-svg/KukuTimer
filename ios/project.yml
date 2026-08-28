@@ -1,0 +1,100 @@
+name: KukuTimer
+options:
+  bundleIdPrefix: com.doozerovka
+  deploymentTarget:
+    iOS: 16.0
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  SWIFT_VERSION: "5.9"
+  IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+  TARGETED_DEVICE_FAMILY: "1" # iPhone only
+
+targets:
+  KukuTimer:
+    type: application
+    platform: iOS
+    sources:
+      - path: KukuTimer
+    dependencies:
+      - target: ShieldConfig
+      - target: ShieldAction
+      - target: DeviceActivityMonitor
+    info:
+      path: KukuTimer/Info.plist
+      properties:
+        CFBundleDisplayName: "Kuku Timer"
+        CFBundleIdentifier: "com.doozerovka.kukutimer"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIBackgroundModes:
+          - processing
+        NSUserNotificationsUsageDescription: "Kuku Timer needs notifications to alert you when your 2-minute window of opportunity opens."
+    settings:
+      CODE_SIGN_ENTITLEMENTS: KukuTimer/KukuTimer.entitlements
+      PRODUCT_BUNDLE_IDENTIFIER: com.doozerovka.kukutimer
+      DEVELOPMENT_TEAM: "" # Set your Apple Developer Team ID
+
+  ShieldConfig:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShieldConfig
+      - path: KukuTimer/Shared
+    info:
+      path: ShieldConfig/Info.plist
+      properties:
+        CFBundleDisplayName: "Kuku Timer Shield UI"
+        CFBundleIdentifier: "com.doozerovka.kukutimer.shield-config"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).ShieldConfigurationExtension"
+    settings:
+      CODE_SIGN_ENTITLEMENTS: ShieldConfig/ShieldConfig.entitlements
+      PRODUCT_BUNDLE_IDENTIFIER: com.doozerovka.kukutimer.shield-config
+
+  ShieldAction:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShieldAction
+      - path: KukuTimer/Shared
+    info:
+      path: ShieldAction/Info.plist
+      properties:
+        CFBundleDisplayName: "Kuku Timer Shield Action"
+        CFBundleIdentifier: "com.doozerovka.kukutimer.shield-action"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).ShieldActionExtension"
+    settings:
+      CODE_SIGN_ENTITLEMENTS: ShieldAction/ShieldAction.entitlements
+      PRODUCT_BUNDLE_IDENTIFIER: com.doozerovka.kukutimer.shield-action
+
+  DeviceActivityMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DeviceActivityMonitor
+      - path: KukuTimer/Shared
+    info:
+      path: DeviceActivityMonitor/Info.plist
+      properties:
+        CFBundleDisplayName: "Kuku Timer Device Activity"
+        CFBundleIdentifier: "com.doozerovka.kukutimer.device-activity"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).DeviceActivityMonitorExtension"
+    settings:
+      CODE_SIGN_ENTITLEMENTS: DeviceActivityMonitor/DeviceActivityMonitor.entitlements
+      PRODUCT_BUNDLE_IDENTIFIER: com.doozerovka.kukutimer.device-activity
