@@ -38,20 +38,20 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 backgroundBlurStyle: .systemMaterialDark,
                 backgroundColor: sumiColor.withAlphaComponent(0.85),
                 icon: UIImage(systemName: "timer"),
-                title: ShieldConfiguration.VisualContent(
+                title: ShieldConfiguration.Label(
                     text: "一炊の夢 • Kuku Timer",
                     color: kinariWhite
                 ),
-                subtitle: ShieldConfiguration.VisualContent(
+                subtitle: ShieldConfiguration.Label(
                     text: "«Человеку даётся шанс на спасение, пока варится рис».\nСделайте глубокий вдох и начните 10-минутную осознанную паузу.",
                     color: kinGoldColor
                 ),
-                primaryButtonLabel: ShieldConfiguration.VisualContent(
+                primaryButtonLabel: ShieldConfiguration.Label(
                     text: "🍚 Поставить рис вариться (10 мин)",
                     color: kinariWhite
                 ),
                 primaryButtonBackgroundColor: shuIroColor,
-                secondaryButtonLabel: ShieldConfiguration.VisualContent(
+                secondaryButtonLabel: ShieldConfiguration.Label(
                     text: "Отложить телефон",
                     color: UIColor.lightGray
                 )
@@ -67,20 +67,20 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 backgroundBlurStyle: .systemMaterialDark,
                 backgroundColor: sumiColor.withAlphaComponent(0.88),
                 icon: UIImage(systemName: "flame.fill"),
-                title: ShieldConfiguration.VisualContent(
+                title: ShieldConfiguration.Label(
                     text: "Котел с рисом закипает...",
                     color: kinariWhite
                 ),
-                subtitle: ShieldConfiguration.VisualContent(
+                subtitle: ShieldConfiguration.Label(
                     text: "Осталось ожидать: \(timeStr)\nКогда рис сварится, вы получите уведомление.",
                     color: kinGoldColor
                 ),
-                primaryButtonLabel: ShieldConfiguration.VisualContent(
+                primaryButtonLabel: ShieldConfiguration.Label(
                     text: "⏳ Идет ожидание (\(timeStr))",
                     color: kinariWhite
                 ),
                 primaryButtonBackgroundColor: sumiColor,
-                secondaryButtonLabel: ShieldConfiguration.VisualContent(
+                secondaryButtonLabel: ShieldConfiguration.Label(
                     text: "Закрыть",
                     color: UIColor.lightGray
                 )
@@ -91,20 +91,20 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 backgroundBlurStyle: .systemMaterialDark,
                 backgroundColor: sumiColor.withAlphaComponent(0.85),
                 icon: UIImage(systemName: "sparkles"),
-                title: ShieldConfiguration.VisualContent(
+                title: ShieldConfiguration.Label(
                     text: "Котел закипел. Рис готов!",
                     color: kinGoldColor
                 ),
-                subtitle: ShieldConfiguration.VisualContent(
+                subtitle: ShieldConfiguration.Label(
                     text: "Врата открыты на 2 минуты.\nОсознанность подтверждена — приятного использования!",
                     color: kinariWhite
                 ),
-                primaryButtonLabel: ShieldConfiguration.VisualContent(
+                primaryButtonLabel: ShieldConfiguration.Label(
                     text: "🌸 Войти в приложение",
                     color: kinariWhite
                 ),
                 primaryButtonBackgroundColor: matsuGreenColor,
-                secondaryButtonLabel: ShieldConfiguration.VisualContent(
+                secondaryButtonLabel: ShieldConfiguration.Label(
                     text: "Не входить",
                     color: UIColor.lightGray
                 )
@@ -115,20 +115,20 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
                 backgroundBlurStyle: .systemMaterialDark,
                 backgroundColor: sumiColor.withAlphaComponent(0.85),
                 icon: UIImage(systemName: "moon.fill"),
-                title: ShieldConfiguration.VisualContent(
+                title: ShieldConfiguration.Label(
                     text: "Окно возможностей остыло",
                     color: kinariWhite
                 ),
-                subtitle: ShieldConfiguration.VisualContent(
+                subtitle: ShieldConfiguration.Label(
                     text: "2 минуты истекли. Чтобы войти, потребуется снова поставить рис вариться.",
                     color: kinGoldColor
                 ),
-                primaryButtonLabel: ShieldConfiguration.VisualContent(
+                primaryButtonLabel: ShieldConfiguration.Label(
                     text: "🍚 Начать заново (10 мин)",
                     color: kinariWhite
                 ),
                 primaryButtonBackgroundColor: shuIroColor,
-                secondaryButtonLabel: ShieldConfiguration.VisualContent(
+                secondaryButtonLabel: ShieldConfiguration.Label(
                     text: "Закрыть",
                     color: UIColor.lightGray
                 )

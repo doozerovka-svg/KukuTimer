@@ -43,7 +43,7 @@ targets:
     platform: iOS
     sources:
       - path: ShieldConfig
-      - path: KukuTimer/Shared
+      - path: KukuTimer/Shared/TimerState.swift
     info:
       path: ShieldConfig/Info.plist
       properties:
@@ -63,7 +63,7 @@ targets:
     platform: iOS
     sources:
       - path: ShieldAction
-      - path: KukuTimer/Shared
+      - path: KukuTimer/Shared/TimerState.swift
     info:
       path: ShieldAction/Info.plist
       properties:
@@ -83,7 +83,7 @@ targets:
     platform: iOS
     sources:
       - path: DeviceActivityMonitor
-      - path: KukuTimer/Shared
+      - path: KukuTimer/Shared/TimerState.swift
     info:
       path: DeviceActivityMonitor/Info.plist
       properties:
