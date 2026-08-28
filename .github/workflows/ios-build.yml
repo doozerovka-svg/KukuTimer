@@ -70,60 +70,51 @@ jobs:
           PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
           echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PROFILE_PATH
 
-      # Build for Simulator / Validation (Always runs to verify Swift code compilation)
-      - name: Build & Validate iOS App & Extensions
+      # Build for generic iOS Device and Package Unsigned IPA (Ready for Sideloadly / AltStore)
+      - name: Build & Package KukuTimer.ipa
         run: |
           cd ios
+          # 1. Build for real iPhone architecture (arm64)
           xcodebuild -project KukuTimer.xcodeproj \
             -scheme KukuTimer \
-            -destination 'generic/platform=iOS Simulator' \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
             clean build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      # Archive & Export IPA (if signing certificate exists)
-      - name: Archive & Export IPA
-        if: env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-        run: |
-          cd ios
-          # 1. Archive
-          xcodebuild -project KukuTimer.xcodeproj \
-            -scheme KukuTimer \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/KukuTimer.xcarchive \
-            archive
+          # 2. Locate built .app bundle
+          APP_PATH=$(find build/DerivedData/Build/Products/Release-iphoneos -name "KukuTimer.app" -maxdepth 1 | head -n 1)
+          echo "Found Main App: $APP_PATH"
 
-          # 2. Export IPA
-          cat <<EOF > exportOptions.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>uploadSymbols</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
+          # 3. Create Payload directory structure for IPA
+          mkdir -p build/ipa_output/Payload
+          cp -R "$APP_PATH" build/ipa_output/Payload/
 
-          xcodebuild -exportArchive \
-            -archivePath build/KukuTimer.xcarchive \
-            -exportPath build/ipa_output \
-            -exportOptionsPlist exportOptions.plist
+          # 4. Copy App Extensions into Payload/KukuTimer.app/PlugIns
+          mkdir -p build/ipa_output/Payload/KukuTimer.app/PlugIns
+          for ext in build/DerivedData/Build/Products/Release-iphoneos/*.appex; do
+            if [ -d "$ext" ]; then
+              echo "Embedding Extension: $ext"
+              cp -R "$ext" build/ipa_output/Payload/KukuTimer.app/PlugIns/
+            fi
+          done
 
-      # Upload Artifacts (IPA or Build outputs)
-      - name: Upload Build Artifacts
+          # 5. Zip into standard .ipa package
+          cd build/ipa_output
+          zip -qr KukuTimer.ipa Payload
+          echo "IPA created successfully: $(ls -lh KukuTimer.ipa)"
+          cd ../..
+
+      # Upload Artifacts (IPA)
+      - name: Upload KukuTimer.ipa Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KukuTimer-iOS-Build
-          path: |
-            ios/build/ipa_output/*.ipa
-            ios/KukuTimer.xcodeproj
-          if-no-files-found: warn
+          name: KukuTimer-IPA
+          path: ios/build/ipa_output/KukuTimer.ipa
+          if-no-files-found: error
 
       # Upload to App Store Connect / TestFlight (if triggered and credentials provided)
       - name: Upload to App Store Connect (TestFlight)
