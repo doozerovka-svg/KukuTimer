@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -15,8 +16,9 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ku
 
 class AppPreferences(private val context: Context) {
     private val RESTRICTED_APPS = stringSetPreferencesKey("restricted_apps")
-    
     private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+    private val COOKING_TIME_MINUTES = intPreferencesKey("cooking_time_minutes")
+    private val WINDOW_TIME_MINUTES = intPreferencesKey("window_time_minutes")
 
     val restrictedApps: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[RESTRICTED_APPS] ?: emptySet()
@@ -24,6 +26,26 @@ class AppPreferences(private val context: Context) {
 
     val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[ONBOARDING_COMPLETED] ?: false
+    }
+
+    val cookingTimeMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[COOKING_TIME_MINUTES] ?: 10
+    }
+
+    val windowTimeMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[WINDOW_TIME_MINUTES] ?: 2
+    }
+
+    suspend fun setCookingTimeMinutes(minutes: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[COOKING_TIME_MINUTES] = minutes
+        }
+    }
+
+    suspend fun setWindowTimeMinutes(minutes: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[WINDOW_TIME_MINUTES] = minutes
+        }
     }
 
     suspend fun setOnboardingCompleted(completed: Boolean) {

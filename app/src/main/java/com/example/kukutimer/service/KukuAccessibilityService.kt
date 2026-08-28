@@ -87,9 +87,14 @@ class KukuAccessibilityService : AccessibilityService() {
         val cooldownMs = 1200L
         val recentlyIntercepted = (lastInterceptedPackage == targetPackage && (now - lastInterceptTime) < cooldownMs)
 
+        val cookingMinutes = appPreferences.cookingTimeMinutes.first()
+        val windowMinutes = appPreferences.windowTimeMinutes.first()
+        val cookingDurationMs = cookingMinutes * 60 * 1000L
+        val windowDurationMs = windowMinutes * 60 * 1000L
+
         if (endTime == null) {
-            // Start 10-minute cooking timer
-            val newEndTime = now + 10 * 60 * 1000
+            // Start cooking timer
+            val newEndTime = now + cookingDurationMs
             appPreferences.setTimerEndTime(targetPackage, newEndTime)
             scheduleReadyAlarm(targetPackage, newEndTime)
 
@@ -107,13 +112,13 @@ class KukuAccessibilityService : AccessibilityService() {
                     lastInterceptTime = now
                     launchTimerActivity(targetPackage)
                 }
-            } else if (diff > -(2 * 60 * 1000)) {
-                // Within 2-minute window! Allow access
+            } else if (diff > -windowDurationMs) {
+                // Within opportunity window! Allow access
                 appPreferences.setSessionActive(targetPackage, true)
                 lastInterceptedPackage = null
             } else {
-                // Window expired! Reset timer and start fresh 10 minutes
-                val newEndTime = now + 10 * 60 * 1000
+                // Window expired! Reset timer and start fresh cooking period
+                val newEndTime = now + cookingDurationMs
                 appPreferences.setTimerEndTime(targetPackage, newEndTime)
                 scheduleReadyAlarm(targetPackage, newEndTime)
 

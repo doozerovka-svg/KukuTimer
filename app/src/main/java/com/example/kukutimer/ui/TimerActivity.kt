@@ -137,13 +137,16 @@ fun ZenTimerScreen(
     val appName = appInfo.first
     val appIcon = appInfo.second
 
+    val windowMinutes by appPreferences.windowTimeMinutes.collectAsState(initial = 2)
+
     LaunchedEffect(targetPackage) {
         appPreferences.getTimerEndTime(targetPackage).collect { savedEndTime ->
             endTime = savedEndTime
         }
     }
 
-    LaunchedEffect(endTime) {
+    LaunchedEffect(endTime, windowMinutes) {
+        val windowDurationMs = windowMinutes * 60 * 1000L
         while (true) {
             val now = System.currentTimeMillis()
             if (endTime != null) {
@@ -151,7 +154,7 @@ fun ZenTimerScreen(
                 if (diff > 0) {
                     remainingSeconds = diff / 1000
                     isWindowOpen = false
-                } else if (diff > -(2 * 60 * 1000)) {
+                } else if (diff > -windowDurationMs) {
                     remainingSeconds = 0
                     isWindowOpen = true
                 } else {
@@ -312,7 +315,7 @@ fun ZenTimerScreen(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
-                                text = "2 МИНУТЫ НА ВХОД",
+                                text = "$windowMinutes МИН НА ВХОД",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     color = KinGold,
                                     fontWeight = FontWeight.Bold,

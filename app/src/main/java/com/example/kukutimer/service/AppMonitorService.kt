@@ -122,9 +122,14 @@ class AppMonitorService : Service() {
         val cooldownMs = 1500L
         val recentlyIntercepted = (lastInterceptedPackage == targetPackage && (now - lastInterceptTime) < cooldownMs)
 
+        val cookingMinutes = appPreferences.cookingTimeMinutes.first()
+        val windowMinutes = appPreferences.windowTimeMinutes.first()
+        val cookingDurationMs = cookingMinutes * 60 * 1000L
+        val windowDurationMs = windowMinutes * 60 * 1000L
+
         if (endTime == null) {
-            // Start 10-minute timer
-            val newEndTime = now + 10 * 60 * 1000
+            // Start cooking timer
+            val newEndTime = now + cookingDurationMs
             appPreferences.setTimerEndTime(targetPackage, newEndTime)
             scheduleReadyAlarm(targetPackage, newEndTime)
             if (!recentlyIntercepted) {
@@ -135,19 +140,19 @@ class AppMonitorService : Service() {
         } else {
             val diff = endTime - now
             if (diff > 0) {
-                // Still cooking (10-minute period)
+                // Still cooking
                 if (!recentlyIntercepted) {
                     lastInterceptedPackage = targetPackage
                     lastInterceptTime = now
                     launchTimerActivity(targetPackage)
                 }
-            } else if (diff > - (2 * 60 * 1000)) {
-                // Within 2-minute opportunity window! Grant session access
+            } else if (diff > -windowDurationMs) {
+                // Within opportunity window! Grant session access
                 appPreferences.setSessionActive(targetPackage, true)
                 lastInterceptedPackage = null
             } else {
-                // Window missed! Reset timer and start fresh 10 minutes
-                val newEndTime = now + 10 * 60 * 1000
+                // Window missed! Reset timer and start fresh cooking period
+                val newEndTime = now + cookingDurationMs
                 appPreferences.setTimerEndTime(targetPackage, newEndTime)
                 scheduleReadyAlarm(targetPackage, newEndTime)
                 if (!recentlyIntercepted) {

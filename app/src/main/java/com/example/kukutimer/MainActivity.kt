@@ -55,6 +55,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import android.os.PowerManager
+import androidx.compose.ui.text.style.TextAlign
+
 data class AppModel(
     val packageName: String,
     val name: String,
@@ -75,6 +78,7 @@ class MainActivity : ComponentActivity() {
     private val usageAccessState = mutableStateOf(false)
     private val overlayState = mutableStateOf(false)
     private val notificationState = mutableStateOf(false)
+    private val batteryExemptState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,9 +121,11 @@ class MainActivity : ComponentActivity() {
                                 usageAccessGranted = usageAccessState.value,
                                 overlayGranted = overlayState.value,
                                 notificationGranted = notificationState.value,
+                                isBatteryExempt = batteryExemptState.value,
                                 onRequestUsageAccess = { requestUsageAccess() },
                                 onRequestOverlay = { requestOverlayPermission() },
                                 onRequestNotifications = { requestNotificationPermission() },
+                                onRequestBatteryExemption = { requestIgnoreBatteryOptimizations() },
                                 onRestartService = { startMonitoringService() }
                             )
                         }
@@ -159,6 +165,33 @@ class MainActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else {
             true
+        }
+        batteryExemptState.value = isIgnoringBatteryOptimizations()
+    }
+
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.isIgnoringBatteryOptimizations(packageName)
+        } else {
+            true
+        }
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                } catch (e2: Exception) {
+                    e2.printStackTrace()
+                }
+            }
         }
     }
 
@@ -223,21 +256,34 @@ fun MainScreen(
     usageAccessGranted: Boolean,
     overlayGranted: Boolean,
     notificationGranted: Boolean,
+    isBatteryExempt: Boolean,
     onRequestUsageAccess: () -> Unit,
     onRequestOverlay: () -> Unit,
     onRequestNotifications: () -> Unit,
+    onRequestBatteryExemption: () -> Unit,
     onRestartService: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val restrictedApps by appPreferences.restrictedApps.collectAsState(initial = emptySet())
+    val cookingMinutes by appPreferences.cookingTimeMinutes.collectAsState(initial = 10)
 
     var allApps by remember { mutableStateOf<List<AppModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(AppFilterTab.DOWNLOADED) }
     var searchQuery by remember { mutableStateOf("") }
     var showTutorialModal by remember { mutableStateOf(false) }
+    var showSettingsModal by remember { mutableStateOf(false) }
 
     val isProtectionActive = usageAccessGranted && overlayGranted
+
+    if (showSettingsModal) {
+        ZenSettingsDialog(
+            appPreferences = appPreferences,
+            isBatteryExempt = isBatteryExempt,
+            onRequestBatteryExemption = onRequestBatteryExemption,
+            onDismiss = { showSettingsModal = false }
+        )
+    }
 
     if (showTutorialModal) {
         TutorialScreen(
@@ -368,7 +414,7 @@ fun MainScreen(
                         )
                     )
                     Text(
-                        text = "10 минут ожидания для осознанности",
+                        text = "$cookingMinutes минут ожидания для осознанности",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = InkSecondary,
                             fontSize = 11.5.sp
@@ -377,6 +423,26 @@ fun MainScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Settings Button
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = BeigeSurface,
+                        border = BorderStroke(1.dp, BeigeBorder),
+                        modifier = Modifier
+                            .clickable { showSettingsModal = true }
+                            .padding(end = 6.dp)
+                    ) {
+                        Text(
+                            text = "⚙️ Настройки",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = InkPrimary,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.sp
+                            ),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                    }
+
                     // Tutorial / Philosophy Button
                     Surface(
                         shape = RoundedCornerShape(10.dp),
@@ -706,4 +772,184 @@ private fun Drawable.toComposeBitmap(): ImageBitmap? {
     } catch (e: Exception) {
         null
     }
+}
+
+@Composable
+fun ZenSettingsDialog(
+    appPreferences: AppPreferences,
+    isBatteryExempt: Boolean,
+    onRequestBatteryExemption: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val cookingMinutes by appPreferences.cookingTimeMinutes.collectAsState(initial = 10)
+    val windowMinutes by appPreferences.windowTimeMinutes.collectAsState(initial = 2)
+
+    val cookingOptions = listOf(5, 10, 15, 20, 30)
+    val windowOptions = listOf(1, 2, 3, 5)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    text = "設定 • НАСТРОЙКИ",
+                    fontSize = 11.sp,
+                    color = ShuIro,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Интервалы осознанности",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        color = InkPrimary,
+                        fontWeight = FontWeight.Light,
+                        fontSize = 18.sp
+                    )
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Время ожидания («варка риса»):",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = InkPrimary,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    cookingOptions.forEach { minutes ->
+                        val isSelected = cookingMinutes == minutes
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) ShuIro else BeigeCard,
+                            border = BorderStroke(1.dp, if (isSelected) ShuIro else BeigeBorder),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    scope.launch {
+                                        appPreferences.setCookingTimeMinutes(minutes)
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = "${minutes}м",
+                                color = if (isSelected) BeigeSurface else InkPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Окно возможностей (вход):",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = InkPrimary,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    windowOptions.forEach { minutes ->
+                        val isSelected = windowMinutes == minutes
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) KinGold else BeigeCard,
+                            border = BorderStroke(1.dp, if (isSelected) KinGold else BeigeBorder),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    scope.launch {
+                                        appPreferences.setWindowTimeMinutes(minutes)
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = "${minutes}м",
+                                color = if (isSelected) BeigeSurface else InkPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Battery Optimization Section
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isBatteryExempt) MatsuGreenLight else ShuIroLight,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isBatteryExempt) MatsuGreen.copy(alpha = 0.4f) else ShuIro.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isBatteryExempt) "🔋 Энергосбережение отключено" else "⚠️ Требуется отключить оптимизацию",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isBatteryExempt) MatsuGreen else ShuIro
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isBatteryExempt)
+                                "Фоновая служба надежно защищена от закрытия системой."
+                            else
+                                "Разрешите работу в фоне без ограничений батареи для стабильного перехвата.",
+                            fontSize = 10.5.sp,
+                            color = InkSecondary,
+                            lineHeight = 14.sp
+                        )
+                        if (!isBatteryExempt) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Button(
+                                onClick = onRequestBatteryExemption,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ShuIro,
+                                    contentColor = BeigeSurface
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(32.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Исключить из оптимизации", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Готово", color = ShuIro, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        containerColor = BeigeSurface,
+        shape = RoundedCornerShape(20.dp)
+    )
 }
