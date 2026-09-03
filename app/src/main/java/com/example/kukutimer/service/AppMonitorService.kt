@@ -98,7 +98,10 @@ class AppMonitorService : Service() {
             topPackageName = mostRecent?.packageName
         }
 
-        if (topPackageName != null && topPackageName != packageName) {
+        if (topPackageName != null) {
+            if (topPackageName == packageName && TimerActivity.isTop) {
+                return
+            }
             val restrictedApps = appPreferences.restrictedApps.first()
             if (restrictedApps.contains(topPackageName)) {
                 handleRestrictedApp(topPackageName)
@@ -201,15 +204,17 @@ class AppMonitorService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            "monitor_channel",
-            "Мониторинг ограничений Kuku Timer",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Постоянное уведомление активной службы защиты"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "monitor_channel",
+                "Мониторинг ограничений Kuku Timer",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Постоянное уведомление активной службы защиты"
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
         }
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
     }
 
     private fun createNotification(): Notification {

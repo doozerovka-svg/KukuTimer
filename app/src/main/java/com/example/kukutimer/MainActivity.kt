@@ -2,8 +2,11 @@ package com.example.kukutimer
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import com.example.kukutimer.receiver.KukuDeviceAdminReceiver
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -79,6 +82,7 @@ class MainActivity : ComponentActivity() {
     private val overlayState = mutableStateOf(false)
     private val notificationState = mutableStateOf(false)
     private val batteryExemptState = mutableStateOf(false)
+    private val deviceAdminState = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,6 +130,8 @@ class MainActivity : ComponentActivity() {
                                 onRequestOverlay = { requestOverlayPermission() },
                                 onRequestNotifications = { requestNotificationPermission() },
                                 onRequestBatteryExemption = { requestIgnoreBatteryOptimizations() },
+                                isDeviceAdmin = deviceAdminState.value,
+                                onRequestDeviceAdmin = { requestDeviceAdmin() },
                                 onRestartService = { startMonitoringService() }
                             )
                         }
@@ -167,6 +173,25 @@ class MainActivity : ComponentActivity() {
             true
         }
         batteryExemptState.value = isIgnoringBatteryOptimizations()
+        deviceAdminState.value = isDeviceAdminActive()
+    }
+
+    private fun isDeviceAdminActive(): Boolean {
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val adminComponent = ComponentName(this, KukuDeviceAdminReceiver::class.java)
+        return dpm.isAdminActive(adminComponent)
+    }
+
+    private fun requestDeviceAdmin() {
+        val adminComponent = ComponentName(this, KukuDeviceAdminReceiver::class.java)
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+            putExtra(
+                DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Защита KukuTimer от импульсивного удаления во время осознанных пауз."
+            )
+        }
+        startActivity(intent)
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {
@@ -261,11 +286,14 @@ fun MainScreen(
     onRequestOverlay: () -> Unit,
     onRequestNotifications: () -> Unit,
     onRequestBatteryExemption: () -> Unit,
+    isDeviceAdmin: Boolean,
+    onRequestDeviceAdmin: () -> Unit,
     onRestartService: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val restrictedApps by appPreferences.restrictedApps.collectAsState(initial = emptySet())
     val cookingMinutes by appPreferences.cookingTimeMinutes.collectAsState(initial = 10)
+    val avoidedImpulses by appPreferences.avoidedImpulsesCount.collectAsState(initial = 0)
 
     var allApps by remember { mutableStateOf<List<AppModel>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -281,6 +309,8 @@ fun MainScreen(
             appPreferences = appPreferences,
             isBatteryExempt = isBatteryExempt,
             onRequestBatteryExemption = onRequestBatteryExemption,
+            isDeviceAdmin = isDeviceAdmin,
+            onRequestDeviceAdmin = onRequestDeviceAdmin,
             onDismiss = { showSettingsModal = false }
         )
     }
@@ -420,6 +450,24 @@ fun MainScreen(
                             fontSize = 11.5.sp
                         )
                     )
+                    if (avoidedImpulses > 0) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MatsuGreenLight,
+                            border = BorderStroke(1.dp, MatsuGreen.copy(alpha = 0.35f))
+                        ) {
+                            Text(
+                                text = "🌱 Осознанных пауз: $avoidedImpulses",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = MatsuGreen,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 10.5.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -779,6 +827,8 @@ fun ZenSettingsDialog(
     appPreferences: AppPreferences,
     isBatteryExempt: Boolean,
     onRequestBatteryExemption: () -> Unit,
+    isDeviceAdmin: Boolean,
+    onRequestDeviceAdmin: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -938,6 +988,57 @@ fun ZenSettingsDialog(
                                 contentPadding = PaddingValues(0.dp)
                             ) {
                                 Text("Исключить из оптимизации", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Device Admin Anti-Uninstall Section
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isDeviceAdmin) MatsuGreenLight else ShuIroLight,
+                    border = BorderStroke(
+                        1.dp,
+                        if (isDeviceAdmin) MatsuGreen.copy(alpha = 0.4f) else ShuIro.copy(alpha = 0.3f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isDeviceAdmin) "🛡️ Защита от удаления активна" else "🛡️ Защита от удаления",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDeviceAdmin) MatsuGreen else ShuIro
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isDeviceAdmin)
+                                "Приложение защищено от импульсивного удаления правами администратора устройства."
+                            else
+                                "Активируйте права администратора устройства, чтобы предотвратить импульсивное удаление KukuTimer.",
+                            fontSize = 10.5.sp,
+                            color = InkSecondary,
+                            lineHeight = 14.sp
+                        )
+                        if (!isDeviceAdmin) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Button(
+                                onClick = onRequestDeviceAdmin,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ShuIro,
+                                    contentColor = BeigeSurface
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(32.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Включить защиту от удаления", fontSize = 11.sp)
                             }
                         }
                     }

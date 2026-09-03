@@ -19,6 +19,7 @@ class AppPreferences(private val context: Context) {
     private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     private val COOKING_TIME_MINUTES = intPreferencesKey("cooking_time_minutes")
     private val WINDOW_TIME_MINUTES = intPreferencesKey("window_time_minutes")
+    private val AVOIDED_IMPULSES_COUNT = intPreferencesKey("avoided_impulses_count")
 
     val restrictedApps: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[RESTRICTED_APPS] ?: emptySet()
@@ -34,6 +35,17 @@ class AppPreferences(private val context: Context) {
 
     val windowTimeMinutes: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[WINDOW_TIME_MINUTES] ?: 2
+    }
+
+    val avoidedImpulsesCount: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[AVOIDED_IMPULSES_COUNT] ?: 0
+    }
+
+    suspend fun incrementAvoidedImpulses() {
+        context.dataStore.edit { prefs ->
+            val current = prefs[AVOIDED_IMPULSES_COUNT] ?: 0
+            prefs[AVOIDED_IMPULSES_COUNT] = current + 1
+        }
     }
 
     suspend fun setCookingTimeMinutes(minutes: Int) {

@@ -74,7 +74,18 @@ class TimerActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        isTop = true
         hideSystemBars()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isTop = false
+    }
+
+    companion object {
+        @Volatile
+        var isTop: Boolean = false
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -382,6 +393,35 @@ fun ZenTimerScreen(
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (!isWindowOpen) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                appPreferences.incrementAvoidedImpulses()
+                                appPreferences.setTimerEndTime(targetPackage, 0L)
+                                onExit()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(if (isCompact) 46.dp else 50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MatsuGreen,
+                            contentColor = BeigeSurface
+                        )
+                    ) {
+                        Text(
+                            text = "🕊️ Я выбираю осознанность (передумал)",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         )
                     }
