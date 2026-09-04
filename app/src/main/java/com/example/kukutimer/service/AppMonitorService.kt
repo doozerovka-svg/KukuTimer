@@ -99,8 +99,11 @@ class AppMonitorService : Service() {
         }
 
         if (topPackageName != null) {
-            if (topPackageName == packageName && TimerActivity.isTop) {
-                return
+            if (topPackageName == packageName) {
+                if (TimerActivity.isTop) return
+                if (System.currentTimeMillis() - TimerActivity.lastClosedTime < 2000L) {
+                    return
+                }
             }
             val restrictedApps = appPreferences.restrictedApps.first()
             if (restrictedApps.contains(topPackageName)) {

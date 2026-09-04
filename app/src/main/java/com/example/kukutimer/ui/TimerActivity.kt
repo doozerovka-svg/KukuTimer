@@ -81,11 +81,14 @@ class TimerActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         isTop = false
+        lastClosedTime = System.currentTimeMillis()
     }
 
     companion object {
         @Volatile
         var isTop: Boolean = false
+        @Volatile
+        var lastClosedTime: Long = 0L
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
